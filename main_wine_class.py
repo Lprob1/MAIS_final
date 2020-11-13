@@ -11,10 +11,12 @@ import pandas as pd
 from collections import Counter
 from math import isnan
 import numpy as np
+import tensorflow as tf
 import matplotlib.pyplot as plt
 import pickle
 import string
 from sklearn.model_selection import train_test_split
+from sklearn.model_selection import GridSearchCV
 
 #nlp stuff
 from nltk.stem.wordnet import WordNetLemmatizer
@@ -30,15 +32,24 @@ import multiprocessing
 #vectorization
 from sklearn.feature_extraction.text import TfidfVectorizer
 from gensim.models import Word2Vec
+from sklearn.feature_extraction.text import CountVectorizer
 
 #machine learning models
 from sklearn.ensemble import RandomForestClassifier
 from sklearn import naive_bayes
 from sklearn.linear_model import LogisticRegression
+from sklearn.svm import LinearSVC
 
 #validation
 from sklearn.metrics import accuracy_score
 from sklearn.metrics import confusion_matrix
+from sklearn.metrics import log_loss
+
+from sklearn.metrics import precision_score
+from sklearn.metrics import recall_score
+
+#saving data
+from joblib import dump, load
 
 #setting the price categories. Below 10, 0, 10-20, 1...
 #price_cat = {2000:9, 1000:8, 500:7, 200:6, 100:5, 50:4, 30:3, 20:2, 10:1, 0:0}
@@ -121,6 +132,11 @@ def load_data(filename):
 #VECTORIZER FUNCTION
 ###################################
 
+#creates a vector of ones with countVectorizer
+def simple_vectorize(X_set):
+    vectorizer=CountVectorizer()
+    
+
 #creates a word2vec embedding model
 def create_word_embedding():
     #count number of cores
@@ -155,6 +171,15 @@ def logistic_regression_classifier(X_set, y_set):
     lgc = LogisticRegression(multi_class='multinomial', n_jobs=cores-1)
     lgc.fit(X_set, y_set)
     return lgc
+def svm_classifier(X_set, y_set):
+    svm = LinearSVC(verbose=True)
+    svm.fit(X_set, y_set)
+    return svm
+def param_selections(model, X_set, y_set, param_dist, iterations):
+    grid_search = RandomizedSearchCV(model, param_distributions=param_dist, n_iter=iterations)
+    grid_search.fit(X_set, y_set)
+    return grid_search.best_params_
+    
 ###################################
 #PROGRAM EXECUTION
 ###################################
@@ -170,30 +195,75 @@ def logistic_regression_classifier(X_set, y_set):
 #load data/save data
 #save_data(X_raw, y_cat, 'data_lemmatized.txt')
 X_raw, y_cat = load_data('data_lemmatized.txt')
+
 #split data
 X_train, X_test, y_train, y_test = train_test_split(X_raw, y_cat, test_size = 0.1)
 (X_train_Tfidf, X_test_Tfidf) = tfidf_vectorize()
-#apply naive bayes
 
+
+#apply svm
+"""
+param_grid={'C':[0.01, 0.02, 0.05, 0.1, 1.5, 2], 'penalty':['l1', 'l2']}
+
+grid_search = GridSearchCV(estimator=LinearSVC(max_iter=10000, dual=False), param_grid=param_grid, verbose=1)
+grid_search.fit(X_train_Tfidf, y_train['price'])
+best_params = grid_search.best_params_
+"""
+augmented_svm= LinearSVC();
+augmented_svm.fit(X_train_Tfidf, y_train['price'])
+
+svm_predicted = augmented_svm.predict(X_test_Tfidf)
+train_pred = augmented_svm.predict(X_train_Tfidf)
+train_accuracy = accuracy_score(y_train, train_pred)
+test_accuracy = accuracy_score(y_test, svm_predicted)
+
+test_precision = precision_score(y_test, svm_predicted, average=None)
+test_recall = recall_score(y_test, svm_predicted, average=None)
+#test_loss = log_loss(y_test, svm_predicted, labels=[1, 2, 3, 4, 5, 6, 7])
+print("The test accuracy of the Linear SVC model is {}%".format(test_accuracy*100))
+print("The train set accuracy of the Linear SVC model is {}%".format(train_accuracy*100))
+print("The precision of the SVM model is {}".format(test_precision))
+print("The recall of the SVM model is {}".format(test_recall))
+#print("The logistic loss of the SVM model is {}".format(logistic_loss))
+
+print("")
+print("------------------------------------------")
+print("")
+#apply naive bayes
+"""
 naive_model = naive_bayes_classifier(X_train_Tfidf, y_train['price'])
 naive_predicted = naive_model.predict(X_test_Tfidf)
 train_pred = naive_model.predict(X_train_Tfidf)
+
 train_accuracy = accuracy_score(y_train, train_pred)
 test_accuracy = accuracy_score(y_test, naive_predicted)
+
+test_precision = precision_score(y_test, naive_predicted, average='micro')
+test_recall = recall_score(y_test, naive_predicted, average='micro')
+
 print("The test accuracy of the Naive Bayes model is {}%".format(test_accuracy*100))
 print("The train set accuracy of the Naive Bayes model is {}%".format(train_accuracy*100))
-
+print("The precision of the Naive Bayes model is {}".format(test_precision))
+print("The recall of the Naive Bayes model is {}".format(test_recall))
+"""
 #apply random forest classifier
 rfc = rfc_classifier(X_train_Tfidf, y_train['price'])
 rfc_predicted = rfc.predict(X_test_Tfidf)
 train_predict = rfc.predict(X_train_Tfidf)
+
 train_accuracy = accuracy_score(y_train, train_predict)
 test_accuracy = accuracy_score(y_test, rfc_predicted)
+
+test_precision = precision_score(y_test, rfc_predicted, average=None, zero_division=1)
+test_recall = recall_score(y_test, rfc_predicted, average=None)
+#test_loss = log_loss(y_test, rfc_predicted, labels=[1, 2, 3, 4, 5, 6, 7])
 print("The test accuracy of the RFC model is {}%".format(test_accuracy*100))
 print("The train set accuracy of the RFC model is {}%".format(train_accuracy*100))
-
+print("The precision of the RFC model is {}".format(test_precision))
+print("The recall of the RFC model is {}".format(test_recall))
+#print("The logistic loss of the RFC model is {}".format(test_loss))
 #apply logistic regression
-
+"""
 lgc = logistic_regression_classifier(X_train_Tfidf, y_train['price'])
 lgc_predicted = lgc.predict(X_test_Tfidf)
 train_pred = lgc.predict(X_train_Tfidf)
@@ -201,18 +271,22 @@ train_accuracy = accuracy_score(y_train, train_pred)
 test_accuracy = accuracy_score(y_test, lgc_predicted)
 print("The test accuracy of the Logistic Regression model is {}%".format(test_accuracy*100))
 print("The train set accuracy of the Logistic Regression model is {}%".format(train_accuracy*100))
-
+"""
 
 #Confusion matrices
-C_naive = confusion_matrix(y_test, naive_predicted)
+C_svc = confusion_matrix(y_test, svm_predicted)
+#_naive = confusion_matrix(y_test, naive_predicted)
 C_rfc = confusion_matrix(y_test, rfc_predicted)
-C_lgc = confusion_matrix(y_test, lgc_predicted)
-print("Naive Bayes confusion matrix:")
-print(C_naive)
+#C_lgc = confusion_matrix(y_test, lgc_predicted)
+print("SVM confusion matrix:")
+print(C_svc)
+#print("Naive Bayes confusion matrix:")
+#print(C_naive)
 print("RFC confusion matrix:")
 print(C_rfc)
-print("LGC confusion matrix:")
-print(C_lgc)
+#print("LGC confusion matrix:")
+#print(C_lgc)
+"""
 f, a= plt.subplots(1,3)
 a[0].imshow(C_naive, cmap='binary')
 a[0].set_title("Naive Bayes CM")
@@ -221,3 +295,5 @@ a[1].set_title("RFC CM")
 a[2].imshow(C_lgc, cmap='binary')
 a[2].set_title("LGC CM")
 plt.show()
+"""
+

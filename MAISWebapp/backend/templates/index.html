@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+   <link rel="stylesheet" type="text/css" href="../static/css/main.css">
+</head>
+
+<body>
+   <!-- Tab for Wine category prediction text generation -->
+      <h1>Wine Price Predictor</h1>
+
+      <form method="POST">
+         <textarea id="myTextArea" name="description" rows="4"
+         cols="50" placeholder="This wine is good because..."> </textarea>
+         <!--input type="text" name="description" placeholder="This wine is good because..." size="120"-->
+         <br><br>
+         <button type="submit">Submit</button>
+
+      </form>
+
+      {% if prediction != None %}
+      <br><br>
+      <p><b>{{ prediction }}</b></p>
+      {% endif %}
+      <div class="exp_parag">
+         <p class="exp_text">This web app has for goal to identify the price category of a wine based off
+            it's description. This comes especially handy when at a restaurant, 
+            where one might not be able to guess if the wine is overpriced. 
+            The GitHub repository can be found <a href="https://github.com/Lprob1/MAIS_final">here</a></p>
+        </p>
+      </div>
+      
+</body>
+
+
+</html>
